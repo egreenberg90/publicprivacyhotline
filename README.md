@@ -30,8 +30,11 @@ USB Charger
 
 
 Attached files:
+
 diagram.jpg - shows how the arduino and its components should be set up
+
 code1.txt - code for the phone WITHOUT the motion sensor or ringing
+
 code2.txt - code for the phone WITH the motion sensor, ringing, and differential volume
 
 
