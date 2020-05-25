@@ -1,0 +1,51 @@
+{\rtf1\ansi\ansicpg1252\cocoartf1561\cocoasubrtf600
+{\fonttbl\f0\fnil\fcharset0 LucidaGrande;}
+{\colortbl;\red255\green255\blue255;\red38\green38\blue38;\red255\green255\blue255;}
+{\*\expandedcolortbl;;\cssrgb\c20000\c20000\c20000;\cssrgb\c100000\c100000\c100000;}
+\margl1440\margr1440\vieww10800\viewh8400\viewkind0
+\deftab720
+\pard\pardeftab720\sl320\sa552\partightenfactor0
+
+\f0\fs26 \cf2 \cb3 \expnd0\expndtw0\kerning0
+\outl0\strokewidth0 \strokec2 /*\uc0\u8232 * ringer and button both work, button interrupts ringer, differential volume\u8232 */\u8232 #include <avr/interrupt.h>\u8232 #include <avr/sleep.h>\u8232 #include \'93pins_arduino.h\'94\
+#include <SFEMP3Shield.h>\uc0\u8232 #include <SFEMP3ShieldConfig.h>\u8232 #include <SFEMP3Shieldmainpage.h>\
+#include <ArduinoStream.h>\uc0\u8232 #include <bufstream.h>\u8232 #include <ios.h>\u8232 #include <iostream.h>\u8232 #include <istream.h>\u8232 #include <MinimumSerial.h>\u8232 #include <ostream.h>\u8232 #include <Sd2Card.h>\u8232 #include <SdBaseFile.h>\u8232 #include <SdFat.h>\u8232 #include <SdFatConfig.h>\u8232 #include <SdFatmainpage.h>\u8232 #include <SdFatStructs.h>\u8232 #include <SdFatUtil.h>\u8232 #include <SdFile.h>\u8232 #include <SdInfo.h>\u8232 #include <SdStream.h>\u8232 #include <SdVolume.h>\
+#include <SPI.h>\uc0\u8232 #include <SdFat.h>\u8232 #include <SdFatUtil.h>\u8232 #include <SFEMP3Shield.h>\
+SdFat sd;\uc0\u8232 SFEMP3Shield MP3player;\u8232 SdVolume volume;\
+#define TRACKS 12\uc0\u8232 int specialTrack = 1;\u8232 int currentTrack = 2;\
+volatile uint8_t *port_to_pcmask[] = \{\uc0\u8232 &PCMSK0,\u8232 &PCMSK1,\u8232 &PCMSK2\u8232 \};\
+static int PCintMode[24];\
+typedef void (*voidFuncPtr)(void);\
+volatile static voidFuncPtr PCintFunc[24] = \{\uc0\u8232 NULL \};\
+volatile static uint8_t PCintLast[3];\
+/*\uc0\u8232 * attach an interrupt to a specific pin using pin change interrupts.\u8232 */\u8232 void PCattachInterrupt(uint8_t pin, void (*userFunc)(void), int mode) \{\u8232 uint8_t bit = digitalPinToBitMask(pin);\u8232 uint8_t port = digitalPinToPort(pin);\u8232 uint8_t slot;\u8232 volatile uint8_t *pcmask;\
+// map pin to PCIR register\uc0\u8232 if (port == NOT_A_PORT) \{\u8232 return;\u8232 \}\u8232 else \{\u8232 port -= 2;\u8232 pcmask = port_to_pcmask[port];\u8232 \}\
+// \'97 Fix by Baziki. In the original sources it was a little bug, which cause analog ports to work incorrectly.\uc0\u8232 if (port == 1) \{\u8232 slot = port * 8 + (pin \'96 14);\u8232 \}\u8232 else \{\u8232 slot = port * 8 + (pin % 8);\u8232 \}\u8232 // \'96Fix end\u8232 PCintMode[slot] = mode;\u8232 PCintFunc[slot] = userFunc;\u8232 // set the mask\u8232 *pcmask |= bit;\u8232 // enable the interrupt\u8232 PCICR |= 0x01 << port;\u8232 \}\
+void PCdetachInterrupt(uint8_t pin) \{\uc0\u8232 uint8_t bit = digitalPinToBitMask(pin);\u8232 uint8_t port = digitalPinToPort(pin);\u8232 volatile uint8_t *pcmask;\
+// map pin to PCIR register\uc0\u8232 if (port == NOT_A_PORT) \{\u8232 return;\u8232 \}\u8232 else \{\u8232 port -= 2;\u8232 pcmask = port_to_pcmask[port];\u8232 \}\
+// disable the mask.\uc0\u8232 *pcmask &= ~bit;\u8232 // if that\'92s the last one, disable the interrupt.\u8232 if (*pcmask == 0) \{\u8232 PCICR &= ~(0x01 << port);\u8232 \}\u8232 \}\
+// common code for isr handler. \'93port\'94 is the PCINT number.\uc0\u8232 // there isn\'92t really a good way to back-map ports and masks to pins.\u8232 static void PCint(uint8_t port) \{\u8232 uint8_t bit;\u8232 uint8_t curr;\u8232 uint8_t mask;\u8232 uint8_t pin;\
+// get the pin states for the indicated port.\uc0\u8232 curr = *portInputRegister(port+2);\u8232 mask = curr ^ PCintLast[port];\u8232 PCintLast[port] = curr;\u8232 // mask is pins that have changed. screen out non pcint pins.\u8232 if ((mask &= *port_to_pcmask[port]) == 0) \{\u8232 return;\u8232 \}\u8232 // mask is pcint pins that have changed.\u8232 for (uint8_t i=0; i < 8; i++) \{\u8232 bit = 0x01 << i;\u8232 if (bit & mask) \{\u8232 pin = port * 8 + i;\u8232 // Trigger interrupt if mode is CHANGE, or if mode is RISING and\u8232 // the bit is currently high, or if mode is FALLING and bit is low.\u8232 if ((PCintMode[pin] == CHANGE\u8232 || ((PCintMode[pin] == RISING) && (curr & bit))\u8232 || ((PCintMode[pin] == FALLING) && !(curr & bit)))\u8232 && (PCintFunc[pin] != NULL)) \{\u8232 PCintFunc[pin]();\u8232 \}\u8232 \}\u8232 \}\u8232 \}\
+SIGNAL(PCINT0_vect) \{\uc0\u8232 PCint(0);\u8232 \}\u8232 SIGNAL(PCINT1_vect) \{\u8232 PCint(1);\u8232 \}\u8232 SIGNAL(PCINT2_vect) \{\u8232 PCint(2);\u8232 \}\
+int buttonPin = 5;\'a0\'a0\'a0\'a0\'a0\'a0\'a0\'a0\'a0\'a0\'a0\'a0\'a0 // choose the pin for the pushbutton\uc0\u8232 int ledPin = 13;\'a0\'a0\'a0\'a0\'a0\'a0\'a0\'a0\'a0\'a0\'a0\'a0\'a0\'a0\'a0 // choose the pin for the LED\u8232 int inputPin = 1;\'a0\'a0\'a0\'a0\'a0\'a0\'a0\'a0\'a0\'a0\'a0\'a0\'a0\'a0 // choose the input pin (for PIR sensor)\u8232 int pirState = LOW;\'a0\'a0\'a0\'a0\'a0\'a0\'a0\'a0\'a0\'a0\'a0\'a0 // we start, assuming no motion detected\u8232 int val = 0;\'a0\'a0\'a0\'a0\'a0\'a0\'a0\'a0\'a0\'a0\'a0\'a0\'a0\'a0\'a0\'a0\'a0\'a0\'a0 // variable for reading the pin status\u8232 int buttonState;\'a0\'a0\'a0\'a0\'a0\'a0\'a0\'a0\'a0\'a0\'a0\'a0 // the current reading from the input pin\u8232 int lastButtonState = LOW;\'a0\'a0 // the previous reading from the input pin\
+long lastDebounceTime = 0;\'a0 // the last time the output pin was toggled\uc0\u8232 long debounceDelay = 50;\'a0\'a0\'a0 // the debounce time; increase if the output flickers\
+void setup() \{\uc0\u8232 pinMode(buttonPin, INPUT);\'a0\'a0\'a0\'a0\'a0 // declare button as input\u8232 pinMode(inputPin, INPUT);\'a0\'a0\'a0\'a0 // declare sensor as input\u8232 pinMode(ledPin, OUTPUT);\
+sd.begin(SD_SEL, SPI_HALF_SPEED);\uc0\u8232 MP3player.begin();\u8232 MP3player.setVolume(50,50);\u8232 PCattachInterrupt(1, wakeUpNow, LOW);\u8232 PCattachInterrupt(5, wakeUpNow, LOW);\
+\}\
+void sleepNow() \{\uc0\u8232 set_sleep_mode(SLEEP_MODE_PWR_DOWN);\u8232 sleep_enable();\u8232 PCattachInterrupt(5, wakeUpNow, LOW);\u8232 PCattachInterrupt(1, wakeUpNow, LOW);\u8232 sleep_mode();\u8232 sleep_disable();\u8232 PCdetachInterrupt(5);\u8232 PCdetachInterrupt(1);\u8232 delay(1000);\u8232 \}\
+void wakeUpNow()\uc0\u8232 \{\u8232 \}\
+void loop()\{\
+sleepNow();\
+int reading = digitalRead(buttonPin);\
+// check to see if you just pressed the button\uc0\u8232 // (i.e. the input went from LOW to HIGH),\'a0 and you\'92ve waited\u8232 // long enough since the last press to ignore any noise:\
+// If the switch changed, due to noise or pressing:\uc0\u8232 if (reading != lastButtonState) \{\u8232 buttonState = reading;\
+// only toggle the LED if the new button state is HIGH\uc0\u8232 if (buttonState == HIGH) \{\u8232 MP3player.setVolume(50,50);\u8232 MP3player.playTrack(currentTrack);\u8232 \} else \{\
+MP3player.stopTrack();\uc0\u8232 currentTrack++;\u8232 if (currentTrack>TRACKS) \{\u8232 currentTrack = 2;\u8232 \}\u8232 \}\u8232 \}\
+// set the LED:\
+// save the reading.\'a0 Next time through the loop,\uc0\u8232 // it\'92ll be the lastButtonState:\u8232 lastButtonState = reading;\
+val = digitalRead(inputPin);\'a0 // read input value\uc0\u8232 if (val == HIGH) \{\'a0\'a0\'a0\'a0\'a0\'a0\'a0\'a0\'a0\'a0\'a0 // check if the input is HIGH\u8232 if (pirState == LOW) \{\u8232 // we have just turned on\u8232 MP3player.setVolume(0,0);\u8232 MP3player.playTrack(specialTrack);\
+// We only want to print on the output change, not state\uc0\u8232 pirState = HIGH;\u8232 \}\u8232 \} else \{\
+if (pirState == HIGH)\{\uc0\u8232 // we have just turned of\
+// We only want to print on the output change, not state\uc0\u8232 pirState = LOW;\u8232 MP3player.setVolume(50,50);\
+\}\uc0\u8232 \}\u8232 \}\
+}
