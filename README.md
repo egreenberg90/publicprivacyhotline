@@ -61,3 +61,5 @@ It's best if you can figure out the wiring of the phone button (where the headse
 It's also nice if you can hack into the phone speakers, solder them to a jack, and plug in, but this is a little tricky. Using already existing headphones is quick and will get the job done. Just open up the headset and take everything out. Now take apart your headphones. You will want to remove the part that rests on your head and all the padding that surrounds the actual speakers. When you're through, you should be left with the speakers and the wires connecting to the jack. Shove this into the headset and position the speakers where you would normally hear them in the top circular part of the phone. Thread the cord in the coil of the actual phone cord and plug the headphone jack into the MP3 shield.
 
 Shove all the electornics in the phone, close her up, and plug in!
+
+For images of the phone in action, check out emilygreenberg.net
