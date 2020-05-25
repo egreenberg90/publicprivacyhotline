@@ -1,0 +1,115 @@
+/*
+ * ringer and button both work, button interrupts ringer, differential volume
+ */
+
+#include <SFEMP3Shield.h>
+#include <SFEMP3ShieldConfig.h>
+#include <SFEMP3Shieldmainpage.h>
+
+#include <ArduinoStream.h>
+#include <bufstream.h>
+#include <ios.h>
+#include <iostream.h>
+#include <istream.h>
+#include <MinimumSerial.h>
+#include <ostream.h>
+#include <Sd2Card.h>
+#include <SdBaseFile.h>
+#include <SdFat.h>
+#include <SdFatConfig.h>
+#include <SdFatmainpage.h>
+#include <SdFatStructs.h>
+#include <SdFatUtil.h>
+#include <SdFile.h>
+#include <SdInfo.h>
+#include <SdStream.h>
+#include <SdVolume.h>
+
+#include <SPI.h>
+#include <SdFat.h>
+#include <SdFatUtil.h> 
+#include <SFEMP3Shield.h>
+
+SdFat sd;
+SFEMP3Shield MP3player;
+SdVolume volume;
+
+#define TRACKS 13
+int specialTrack = 1;
+int currentTrack = 2;
+ 
+int buttonPin = 5;              // choose the pin for the pushbutton
+int ledPin = 13;                // choose the pin for the LED
+int inputPin = 1;               // choose the input pin (for PIR sensor)
+int pirState = LOW;             // we start, assuming no motion detected
+int val = 0;                    // variable for reading the pin status
+int buttonState;             // the current reading from the input pin
+int lastButtonState = LOW;   // the previous reading from the input pin
+
+long lastDebounceTime = 0;  // the last time the output pin was toggled
+long debounceDelay = 50;    // the debounce time; increase if the output flickers
+
+void setup() {
+  pinMode(buttonPin, INPUT);      // declare button as input
+  pinMode(inputPin, INPUT);     // declare sensor as input
+ 
+  sd.begin(SD_SEL, SPI_HALF_SPEED);
+  MP3player.begin();
+  MP3player.setVolume(50,50);
+}
+ 
+void loop(){
+  int reading = digitalRead(buttonPin);
+
+  // check to see if you just pressed the button 
+  // (i.e. the input went from LOW to HIGH),  and you've waited 
+  // long enough since the last press to ignore any noise:  
+
+  // If the switch changed, due to noise or pressing:
+  if (reading != lastButtonState) {
+    buttonState = reading;
+
+      // only toggle the LED if the new button state is HIGH
+    if (buttonState == HIGH) {
+      MP3player.setVolume(0,0);
+      MP3player.playTrack(currentTrack);
+    } else {
+        
+      MP3player.stopTrack();
+      currentTrack++;
+      if (currentTrack>TRACKS) {
+        currentTrack = 2;
+      }
+    }
+  }
+  
+  // set the LED:
+ 
+
+  // save the reading.  Next time through the loop,
+  // it'll be the lastButtonState:
+  lastButtonState = reading;
+
+  
+  val = digitalRead(inputPin);  // read input value
+  if (val == HIGH) {            // check if the input is HIGH
+    if (pirState == LOW) {
+      // we have just turned on
+      MP3player.setVolume(0,0);
+      MP3player.playTrack(specialTrack);
+      
+      // We only want to print on the output change, not state
+      pirState = HIGH;
+    }
+  } else {
+    
+    if (pirState == HIGH){
+      // we have just turned of
+     
+      // We only want to print on the output change, not state
+      pirState = LOW;
+      MP3player.setVolume(0,0);
+      
+    }
+  }
+}
