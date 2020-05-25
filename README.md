@@ -1,4 +1,4 @@
-# publicprivacyhotline
+# public privacy hotline
 These instructions are for creating an old analog phone that rings in response to motion. When someone picks up the phone, it stops ringing and begins playing a custom music track.
 
 Materials:
