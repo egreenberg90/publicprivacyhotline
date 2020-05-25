@@ -53,6 +53,7 @@ Test that your button works: https://www.arduino.cc/en/tutorial/button
 Test that your PIR sensor works: https://learn.adafruit.com/pir-passive-infrared-proximity-motion-sensor/using-a-pir-w-arduino *****
 
 In Processing, paste in the code I have included in the files. Do proper testing to ensure it works. Note that you will want to play around with the volumes. The ringing should be much louder than the tracks you listen to with the phone pressed against your ear.
+
 Once the electronics are working, it's time to get it working in the phone itself. Unscrew the bottom of the phone. You'll want to get rid of the phone guts. Take out everything except the wires connecting to the button where the headset rests, and leave the headset alone for now.
 
 It's best if you can figure out the wiring of the phone button (where the headset rests) and sub that in for the other button. If not, you will have to make the phone button physically press the button you are hooking up to the breadboard. 
